@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MENTS Algorithm Explanation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h1 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            margin-top: 30px;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            background-color: #f8f8f8;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .math {
+            font-style: italic;
+        }
+        .flow-diagram {
+            font-family: monospace;
+            white-space: pre;
+            line-height: 1.2;
+            background-color: #f8f8f8;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px;
+        }
+        .note {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-left: 5px solid #3498db;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Detailed Explanation of the MENTS Algorithm in Agents.py</h1>
+    
+    <h2>Introduction to the MENTS Algorithm</h2>
+    <p>
+        MENTS (Maximum ENTropy Search) is a search algorithm based on maximum entropy. Unlike traditional algorithms like Monte Carlo Tree Search (MCTS) that use UCB (Upper Confidence Bound) to balance exploitation and exploration, MENTS uses entropy to determine which actions to explore.
+    </p>
+    <p>
+        The key innovation in MENTS is using entropy as the primary metric for node selection, which encourages exploration of states with high uncertainty. This approach can be particularly effective in environments with complex or stochastic dynamics.
+    </p>
+
+    <h2>Key Variables in the Algorithm</h2>
+    
+    <h3>In the <code>MENTSAgent</code> class:</h3>
+    <pre><code>def __init__(self, action_space, num_actions=1, seed=None):
+    self.action_space = action_space  # The space of possible actions
+    self.num_actions = num_actions    # Number of actions to select in each step
+    if seed is not None:
+        self.action_space.seed(seed)  # Set seed for reproducibility</code></pre>
+
+    <h3>In the <code>MENTSNode</code> class:</h3>
+    <pre><code>def __init__(self, env, action_space, parent=None, parent_action=None):
+    self.env = env                    # Environment (Traffic in your case)
+    self.parent = parent              # Parent node in the search tree
+    self.parent_action = parent_action # Action that led to this node
+    self.children = []                # Child nodes
+    self.number_of_visits = 0         # Number of visits to this node
+    self.reward_distribution = []     # Repository of rewards received from this node
+    self.untried_actions = [0, 1]     # Actions not yet tried (in this case 0 or 1)
+    self.action_space = action_space  # Action space
+    self.total_outcomes = 0           # Total number of observed outcomes
+    self.outcome_counts = {}          # Count of outcomes by value</code></pre>
+
+    <h3>Important Constants</h3>
+    <pre><code>MENTS_FACTOR = 10  # Number of iterations for the MENTS algorithm
+ROLLOUT_FACTOR = 3  # Number of simulations for estimating rewards</code></pre>
+
+    <h2>Search and Selection Process</h2>
+
+    <h3>1. Starting the Search</h3>
+    <p>When <code>sample_action</code> of <code>MENTSAgent</code> is called, the search process begins:</p>
+    <pre><code>def sample_action(self, env):
+    s = self._get_action_with_MENTS(env)  # Runs the MENTS algorithm
+    action = {}
+    selected_actions = random.sample(list(s), self.num_actions)
+    # Converting selected actions to the appropriate structure
+    for sample in selected_actions:
+        if isinstance(self.action_space[sample], gym.spaces.Box):
+            action[sample] = s[sample][0].item()
+        elif isinstance(self.action_space[sample], gym.spaces.Discrete):
+            action[sample] = s[sample]
+    return action</code></pre>
+
+    <h3>2. Main MENTS Algorithm</h3>
+    <pre><code>def _get_action_with_MENTS(self, env):
+    root = MENTSNode(env=env, action_space=self.action_space)
+    return root.best_action()</code></pre>
+
+    <h3>3. Best Action</h3>
+    <pre><code>def best_action(self):
+    for i in range(MENTS_FACTOR):  # Performs MENTS_FACTOR iterations
+        v = self.tree_policy()     # Selects a node according to tree policy
+        reward = v.rollout()       # Performs a simulation from the selected node
+        v.backpropagate(reward)    # Updates the tree with the received reward
+    return self.best_child().parent_action  # Returns the action of the best child</code></pre>
+
+    <h2>Entropy Calculation - The Heart of the Algorithm</h2>
+    <p>The <code>calculate_entropy</code> function is key to understanding the MENTS algorithm:</p>
+    <pre><code>def calculate_entropy(self):
+    if self.total_outcomes == 0:
+        return float('inf')  # Prefers unvisited nodes
+    entropy = 0
+    for outcome, count in self.outcome_counts.items():
+        p = count / self.total_outcomes
+        entropy -= p * math.log(p + 1e-9)  # Shannon entropy calculation
+    return entropy</code></pre>
+
+    <p>Entropy is calculated according to Shannon's formula: <span class="math">H(X) = -∑<sub>i</sub> p(x<sub>i</sub>) log p(x<sub>i</sub>)</span></p>
+
+    <p>Where:</p>
+    <ul>
+        <li><span class="math">p(x<sub>i</sub>)</span> is the probability of outcome <span class="math">x<sub>i</sub></span> (calculated as the number of times the outcome was received divided by the total number of outcomes)</li>
+        <li>Higher entropy represents greater uncertainty</li>
+    </ul>
+
+    <div class="note">
+        <p><strong>Note:</strong> The small value <code>1e-9</code> is added to prevent taking the logarithm of zero, which would result in a mathematical error.</p>
+    </div>
+
+    <h3>How Entropy Affects the Selection of the Best Child:</h3>
+    <pre><code>def best_child(self):
+    choices_weights = []
+    for child in self.children:
+        if child.number_of_visits == 0:
+            return child  # Always selects an unvisited child
+        else:
+            choices_weights.append(child.calculate_entropy())
+    return self.children[np.argmax(choices_weights)]  # Selects the child with the highest entropy</code></pre>
+
+    <p>Unlike MCTS which selects the child with the highest UCB value, MENTS selects the child with the highest entropy. This encourages exploration of states with higher uncertainty.</p>
+
+    <h2>Tree Expansion Process</h2>
+    <pre><code>def expand(self):
+    action = self.untried_actions.pop()  # Selects an untried action
+    # Creates a new environment to avoid changing the original environment
+    EnvInfo = ExampleManager.GetEnvInfo("Traffic")
+    new_env = RDDLEnv.RDDLEnv(domain=EnvInfo.get_domain(), 
+                            instance=EnvInfo.get_instance(0))
+    new_env.sampler.subs = copy.deepcopy(self.env.sampler.subs)
+    new_env.state = copy.deepcopy(self.env.state)
+
+    # Performs the action in the new environment
+    next_state, reward, done, info = new_env.step({'advance___i0': action})
+    # Creates a new node
+    child_node = MENTSNode(env=new_env, action_space=self.action_space, 
+                         parent=self, parent_action={'advance___i0': action})
+    self.children.append(child_node)
+    return child_node</code></pre>
+
+    <p>The expansion process:</p>
+    <ol>
+        <li>Selects an action that hasn't been tried yet</li>
+        <li>Creates a copy of the environment to simulate the action without affecting the original environment</li>
+        <li>Executes the action in the copied environment</li>
+        <li>Creates a new node with the resulting state and adds it to the children of the current node</li>
+    </ol>
+
+    <h2>Simulation (Rollout)</h2>
+    <pre><code>def rollout(self):
+    # Creates a new environment for simulation
+    EnvInfo = ExampleManager.GetEnvInfo("Traffic")
+    current_env = RDDLEnv.RDDLEnv(domain=EnvInfo.get_domain(), 
+                                instance=EnvInfo.get_instance(0))
+    current_env.sampler.subs = copy.deepcopy(self.env.sampler.subs)
+    current_env.state = copy.deepcopy(self.env.state)
+
+    # Performs ROLLOUT_FACTOR steps in the environment
+    total_reward = 0
+    for i in range(ROLLOUT_FACTOR):
+        action = self.rollout_policy(self.action_space)  # Selects a random action
+        current_rollout_state, reward, done, info = current_env.step(action)
+        total_reward += reward
+    return total_reward</code></pre>
+
+    <p>The rollout process:</p>
+    <ol>
+        <li>Creates a copy of the environment for simulation</li>
+        <li>Performs a specified number of steps (ROLLOUT_FACTOR) using a simple policy (usually random)</li>
+        <li>Accumulates the rewards received during these steps</li>
+        <li>Returns the total reward as an estimate of the value of the state</li>
+    </ol>
+
+    <h2>Tree Update (Backpropagation)</h2>
+    <pre><code>def backpropagate(self, result):
+    self.number_of_visits += 1
+    self.reward_distribution.append(result)
+    # Updates the outcome count
+    self.total_outcomes += 1
+    if result not in self.outcome_counts:
+        self.outcome_counts[result] = 0
+    self.outcome_counts[result] += 1
+    # Updates all nodes on the way back to the root
+    if self.parent:
+        self.parent.backpropagate(result)</code></pre>
+
+    <p>The backpropagation process:</p>
+    <ol>
+        <li>Increments the visit count for the current node</li>
+        <li>Adds the received reward to the reward distribution</li>
+        <li>Updates the outcome counts, which are used for entropy calculation</li>
+        <li>Recursively updates all parent nodes up to the root</li>
+    </ol>
+
+    <h2>Tree Policy</h2>
+    <pre><code>def tree_policy(self):
+    current_node = self
+    while True:
+        if not current_node.is_fully_expanded():
+            return current_node.expand()  # Expands a node that is not fully expanded
+        else:
+            current_node = current_node.best_child()  # Selects the best child</code></pre>
+
+    <p>The tree policy determines which node to explore next:</p>
+    <ol>
+        <li>If the current node is not fully expanded (has untried actions), expand it</li>
+        <li>Otherwise, select the best child according to the entropy criterion</li>
+        <li>Continue this process until a node is expanded or a leaf node is reached</li>
+    </ol>
+
+    <h2>Integration with pyRDDLGym</h2>
+    <p>pyRDDLGym provides a framework for working with RDDL (Relational Dynamic Influence Diagram Language) problems. In the case of the Traffic domain:</p>
+
+    <ol>
+        <li><strong>Environment Initialization</strong>: The environment is initialized with a specific domain and instance of the traffic problem.</li>
+        <li><strong>Action Space</strong>: In the case of Traffic, actions are binary (0 or 1) representing decisions like "advance" or "stop".</li>
+        <li><strong>System State</strong>: The system state is represented by various variables describing the traffic state.</li>
+        <li><strong>Rewards</strong>: Rewards are calculated based on performance metrics such as traffic flow, waiting times, etc.</li>
+    </ol>
+
+    <h2>Summary of Algorithm Execution Process</h2>
+    <ol>
+        <li><strong>Initialization</strong>: Create a MENTS agent with the environment's action space.</li>
+        <li><strong>At each step</strong>:
+            <ul>
+                <li>The agent receives the current environment state.</li>
+                <li>Runs the MENTS algorithm to choose an optimal action.</li>
+                <li>Performs the action in the environment and receives a new state and reward.</li>
+            </ul>
+        </li>
+        <li><strong>Within the MENTS algorithm</strong>:
+            <ul>
+                <li>Build a search tree representing possible states and actions.</li>
+                <li>In each iteration, select a node according to the tree policy.</li>
+                <li>Expand the tree by adding a new node.</li>
+                <li>Perform a simulation (rollout) from the new node.</li>
+                <li>Update the tree with the received reward.</li>
+                <li>Finally, select the action of the child with the highest entropy.</li>
+            </ul>
+        </li>
+        <li><strong>Entropy Calculation</strong>:
+            <ul>
+                <li>Entropy is calculated based on the distribution of received rewards.</li>
+                <li>High entropy indicates high uncertainty and encourages exploration.</li>
+                <li>Selecting the child with the highest entropy balances exploitation and exploration.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <p>The MENTS algorithm is particularly suitable for problems with high uncertainty, such as traffic control, because it encourages exploration of states with high uncertainty, which may lead to better solutions in the long run.</p>
+
+    <h2>MENTS Algorithm Flow Diagram</h2>
+    <div class="flow-diagram">
+┌─────────────────────────────────────┐
+│           Initialize MENTS          │
+│                                     │
+│  - Create MENTSAgent with action    │
+│    space                            │
+│  - Set number of actions to select  │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│         Agent.sample_action         │
+│                                     │
+│  - Call _get_action_with_MENTS      │
+│  - Process and return selected      │
+│    action(s)                        │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│      _get_action_with_MENTS         │
+│                                     │
+│  - Create root MENTSNode            │
+│  - Call root.best_action()          │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│           Node.best_action          │
+│                                     │
+│  - Loop for MENTS_FACTOR iterations │
+│  - For each iteration:              │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│           Tree Policy Loop          │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│        Is node fully expanded?      │
+│                                     │
+│                                     │
+└───────────────┬─────────────────────┘
+                │
+     ┌──────────┴──────────┐
+     │                     │
+     ▼                     ▼
+┌────────────────┐   ┌────────────────┐
+│      No        │   │      Yes       │
+└───────┬────────┘   └────────┬───────┘
+        │                     │
+        ▼                     ▼
+┌────────────────┐   ┌────────────────┐
+│  Expand Node   │   │  Select Best   │
+│                │   │     Child      │
+│ - Pop untried  │   │                │
+│   action       │   │ - Calculate    │
+│ - Create new   │   │   entropy for  │
+│   environment  │   │   each child   │
+│ - Execute      │   │ - Return child │
+│   action       │   │   with highest │
+│ - Create child │   │   entropy      │
+│   node         │   │                │
+└───────┬────────┘   └────────┬───────┘
+        │                     │
+        └──────────┬──────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────┐
+│             Rollout                 │
+│                                     │
+│  - Create new environment copy      │
+│  - Perform ROLLOUT_FACTOR steps     │
+│    with random actions              │
+│  - Calculate total reward           │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│           Backpropagation           │
+│                                     │
+│  - Increment visit count            │
+│  - Add reward to distribution       │
+│  - Update outcome counts            │
+│  - Propagate to parent nodes        │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│      Return to best_action loop     │
+│      until MENTS_FACTOR reached     │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│      Select Final Best Action       │
+│                                     │
+│  - Find child with highest entropy  │
+│  - Return its parent_action         │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│      Return Action to Environment   │
+└─────────────────────────────────────┘
+    </div>
+
+    <h2>Advantages of MENTS over Traditional Methods</h2>
+    <p>The MENTS algorithm offers several advantages over traditional search methods:</p>
+    <ol>
+        <li><strong>Better exploration</strong>: By focusing on entropy, MENTS naturally explores areas of high uncertainty, which can lead to discovering better solutions in complex environments.</li>
+        <li><strong>Handling stochasticity</strong>: The entropy-based approach is well-suited for stochastic environments where outcomes may vary even with the same actions.</li>
+        <li><strong>Avoiding local optima</strong>: The focus on uncertainty helps the algorithm avoid getting stuck in local optima, as it will continue to explore uncertain areas even if they don't immediately yield high rewards.</li>
+        <li><strong>Adaptability</strong>: As more information is gathered, the entropy calculations automatically adjust to focus exploration on the most uncertain areas.</li>
+    </ol>
+
+    <h2>Potential Improvements and Extensions</h2>
+    <p>Some potential improvements to the current MENTS implementation could include:</p>
+    <ol>
+        <li><strong>Dynamic action space</strong>: Currently, the untried actions are hardcoded as [0, 1]. A more general implementation would derive these from the environment's action space.</li>
+        <li><strong>Parallel simulations</strong>: The algorithm could be sped up by running multiple rollouts in parallel.</li>
+        <li><strong>Value function approximation</strong>: Instead of using random rollouts, a learned value function could provide better estimates of state values.</li>
+        <li><strong>Adaptive rollout depth</strong>: The number of steps in rollouts could be adjusted based on the depth of the node in the tree or other factors.</li>
+        <li><strong>Temperature parameter</strong>: Adding a temperature parameter to the entropy calculation could allow for tuning the exploration-exploitation balance.</li>
+    </ol>
+
+    <h2>Conclusion</h2>
+    <p>
+        The MENTS algorithm represents an innovative approach to decision-making under uncertainty by leveraging entropy as a guide for exploration. Its implementation in the Traffic domain demonstrates its potential for solving complex control problems where traditional methods might struggle.
+    </p>
+    <p>
+        By encouraging exploration of uncertain states, MENTS can discover better long-term strategies, making it particularly suitable for domains with complex dynamics and delayed rewards.
+    </p>
+</body>
+</html>
+

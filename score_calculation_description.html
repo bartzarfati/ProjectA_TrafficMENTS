@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MENTS Score Calculation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h1 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            margin-top: 30px;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            background-color: #f8f8f8;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .math {
+            font-style: italic;
+        }
+        .flow-diagram {
+            font-family: monospace;
+            white-space: pre;
+            line-height: 1.2;
+            background-color: #f8f8f8;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px;
+        }
+        .note {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-left: 5px solid #3498db;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Score Calculation in the MENTS Algorithm</h1>
+    
+    <h2>Introduction</h2>
+    <p>
+        The MENTS (Maximum ENTropy Search) algorithm is a decision-making approach that uses entropy as a guide for exploration in complex environments. This document explains how score calculation works in MENTS and how entropy considerations influence action selection.
+    </p>
+
+    <h2>Score Calculation in Simulation</h2>
+    <p>
+        In the MENTS algorithm, score calculation occurs in two main stages: the Rollout phase and the Backpropagation phase.
+    </p>
+
+    <h3>1. Rollout Phase (Simulation)</h3>
+    <pre><code>def rollout(self):
+    # Creates a new environment for simulation
+    EnvInfo = ExampleManager.GetEnvInfo("Traffic")
+    current_env = RDDLEnv.RDDLEnv(domain=EnvInfo.get_domain(), 
+                                instance=EnvInfo.get_instance(0))
+    current_env.sampler.subs = copy.deepcopy(self.env.sampler.subs)
+    current_env.state = copy.deepcopy(self.env.state)
+
+    # Performs ROLLOUT_FACTOR steps in the environment
+    total_reward = 0
+    for i in range(ROLLOUT_FACTOR):
+        action = self.rollout_policy(self.action_space)  # Selects a random action
+        current_rollout_state, reward, done, info = current_env.step(action)
+        total_reward += reward
+    return total_reward</code></pre>
+
+    <p>In this phase:</p>
+    <ol>
+        <li>A copy of the environment is created to avoid modifying the original environment</li>
+        <li><code>ROLLOUT_FACTOR</code> steps (in this case 3) are performed with random actions</li>
+        <li>The rewards received at each step are accumulated</li>
+        <li>The sum of rewards is returned as the score of the simulation</li>
+    </ol>
+
+    <div class="note">
+        <p><strong>Note:</strong> The score is essentially the cumulative reward received during the simulation. In the Traffic problem, the reward might represent metrics such as traffic flow, waiting times, or other performance indicators.</p>
+    </div>
+
+    <h3>2. Backpropagation Phase</h3>
+    <pre><code>def backpropagate(self, result):
+    self.number_of_visits += 1
+    self.reward_distribution.append(result)
+    # Update outcome counts
+    self.total_outcomes += 1
+    if result not in self.outcome_counts:
+        self.outcome_counts[result] = 0
+    self.outcome_counts[result] += 1
+    # Update all nodes on the way back to the root
+    if self.parent:
+        self.parent.backpropagate(result)</code></pre>
+
+    <p>In this phase:</p>
+    <ol>
+        <li>The number of visits to the node is updated</li>
+        <li>The received reward is added to the node's reward repository</li>
+        <li>The outcome counts are updated by values (key for entropy calculation)</li>
+        <li>The reward is passed to parent nodes recursively up to the root of the tree</li>
+    </ol>
+
+    <h2>Entropy Considerations and Their Impact on Action Selection</h2>
+
+    <h3>Entropy Calculation</h3>
+    <pre><code>def calculate_entropy(self):
+    if self.total_outcomes == 0:
+        return float('inf')  # Prefers unvisited nodes
+    entropy = 0
+    for outcome, count in self.outcome_counts.items():
+        p = count / self.total_outcomes
+        entropy -= p * math.log(p + 1e-9)  # Shannon entropy calculation
+    return entropy</code></pre>
+
+    <p>Entropy is calculated according to Shannon's formula: <span class="math">H(X) = -∑<sub>i</sub> p(x<sub>i</sub>) log p(x<sub>i</sub>)</span></p>
+
+    <p>Where:</p>
+    <ul>
+        <li><span class="math">p(x<sub>i</sub>)</span> is the probability of outcome <span class="math">x<sub>i</sub></span> (calculated as the number of times the outcome was received divided by the total number of outcomes)</li>
+        <li>Higher entropy represents greater uncertainty</li>
+    </ul>
+
+    <h3>How Entropy Affects Action Selection</h3>
+    <pre><code>def best_child(self):
+    choices_weights = []
+    for child in self.children:
+        if child.number_of_visits == 0:
+            return child  # Always selects an unvisited child
+        else:
+            choices_weights.append(child.calculate_entropy())
+    return self.children[np.argmax(choices_weights)]  # Selects the child with the highest entropy</code></pre>
+
+    <p>The central point in the MENTS algorithm is that it selects the node with the highest entropy, meaning the node with the greatest uncertainty. This differs from traditional algorithms like MCTS that select nodes based on UCB (Upper Confidence Bound) value.</p>
+
+    <h3>Why Entropy Considerations Are Important</h3>
+    <ol>
+        <li><strong>Balance Between Exploitation and Exploration</strong>: Selecting nodes with high entropy encourages exploration of states with high uncertainty, which helps the algorithm discover better solutions in the long run.</li>
+        <li><strong>Dealing with Uncertainty</strong>: In stochastic environments (like traffic control), outcomes may vary even with the same actions. Entropy considerations allow the algorithm to better handle this uncertainty.</li>
+        <li><strong>Avoiding Local Minima</strong>: Focusing on uncertainty helps the algorithm avoid getting stuck in local minima, as it will continue to explore uncertain areas even if they don't immediately yield high rewards.</li>
+        <li><strong>Automatic Adaptation</strong>: As more information is gathered, entropy calculations automatically adjust to focus exploration on the most uncertain areas.</li>
+    </ol>
+
+    <h3>Practical Example</h3>
+    <p>Suppose we have two nodes:</p>
+    <ul>
+        <li>Node A: Received rewards of [5, 5, 5, 5] (all identical)</li>
+        <li>Node B: Received rewards of [2, 4, 6, 8] (varied)</li>
+    </ul>
+
+    <p>Entropy calculation:</p>
+    <ul>
+        <li>Node A: All outcomes are identical, so <span class="math">p(5) = 1</span> and the entropy is <span class="math">-1 · log(1) = 0</span></li>
+        <li>Node B: There are 4 different outcomes, each with probability 0.25, so the entropy is <span class="math">-4 · 0.25 · log(0.25) ≈ 1.39</span></li>
+    </ul>
+
+    <p>The MENTS algorithm will choose Node B despite the average reward being the same (5), because it has more uncertainty. This encourages the algorithm to explore more diverse states, which may lead to discovering better strategies in the long run.</p>
+
+    <h2>Block Diagram for Score Calculation in MENTS Algorithm</h2>
+    <div class="flow-diagram">
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           SCORE CALCULATION PROCESS                        │
+└───────────────────────────────────────┬───────────────────────────────────┘
+                                        │
+                                        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                               ROLLOUT PHASE                                │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌─────────────────────────┐                                              │
+│  │ Create Environment Copy │                                              │
+│  └───────────┬─────────────┘                                              │
+│              │                                                            │
+│              ▼                                                            │
+│  ┌─────────────────────────┐     ┌─────────────────────────┐              │
+│  │  Initialize Variables   │     │                         │              │
+│  │                         │     │  total_reward = 0       │              │
+│  └───────────┬─────────────┘     └─────────────────────────┘              │
+│              │                                                            │
+│              ▼                                                            │
+│  ┌─────────────────────────┐                                              │
+│  │   Simulation Loop       │◄────┐                                        │
+│  │   (ROLLOUT_FACTOR       │     │                                        │
+│  │   iterations)           │     │                                        │
+│  └───────────┬─────────────┘     │                                        │
+│              │                   │                                        │
+│              ▼                   │                                        │
+│  ┌─────────────────────────┐     │                                        │
+│  │  Select Random Action   │     │                                        │
+│  │  Using rollout_policy   │     │                                        │
+│  └───────────┬─────────────┘     │                                        │
+│              │                   │                                        │
+│              ▼                   │                                        │
+│  ┌─────────────────────────┐     │                                        │
+│  │  Execute Action in      │     │                                        │
+│  │  Environment            │     │                                        │
+│  └───────────┬─────────────┘     │                                        │
+│              │                   │                                        │
+│              ▼                   │                                        │
+│  ┌─────────────────────────┐     │                                        │
+│  │  Receive Reward         │     │                                        │
+│  └───────────┬─────────────┘     │                                        │
+│              │                   │                                        │
+│              ▼                   │                                        │
+│  ┌─────────────────────────┐     │                                        │
+│  │  total_reward += reward │     │                                        │
+│  └───────────┬─────────────┘     │                                        │
+│              │                   │                                        │
+│              ▼                   │                                        │
+│  ┌─────────────────────────┐     │                                        │
+│  │  Loop Complete?         │─────┘                                        │
+│  │  (i < ROLLOUT_FACTOR)   │  No                                          │
+│  └───────────┬─────────────┘                                              │
+│              │ Yes                                                        │
+│              ▼                                                            │
+│  ┌─────────────────────────┐                                              │
+│  │  Return total_reward    │                                              │
+│  │  as Simulation Score    │                                              │
+│  └───────────┬─────────────┘                                              │
+│              │                                                            │
+└──────────────┼────────────────────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          BACKPROPAGATION PHASE                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────┐                                             │
+│  │  Receive Score (result) │                                             │
+│  └───────────┬─────────────┘                                             │
+│              │                                                           │
+│              ▼                                                           │
+│  ┌─────────────────────────┐                                             │
+│  │  Update Node Statistics │                                             │
+│  │  - number_of_visits++   │                                             │
+│  │  - Add result to        │                                             │
+│  │    reward_distribution  │                                             │
+│  └───────────┬─────────────┘                                             │
+│              │                                                           │
+│              ▼                                                           │
+│  ┌─────────────────────────┐                                             │
+│  │  Update Outcome Counts  │                                             │
+│  │  - total_outcomes++     │                                             │
+│  │  - outcome_counts[result]++ │                                         │
+│  └───────────┬─────────────┘                                             │
+│              │                                                           │
+│              ▼                                                           │
+│  ┌─────────────────────────┐     ┌─────────────────────────┐             │
+│  │  Does Node Have Parent? │ Yes │  Call backpropagate     │             │
+│  │                         │────►│  on Parent Node         │             │
+│  └───────────┬─────────────┘     └─────────────────────────┘             │
+│              │ No                                                        │
+│              ▼                                                           │
+│  ┌─────────────────────────┐                                             │
+│  │  Backpropagation        │                                             │
+│  │  Complete               │                                             │
+│  └─────────────────────────┘                                             │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          ENTROPY CALCULATION                              │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────┐                                             │
+│  │  Check total_outcomes   │                                             │
+│  └───────────┬─────────────┘                                             │
+│              │                                                           │
+│              ▼                                                           │
+│  ┌─────────────────────────┐     ┌─────────────────────────┐             │
+│  │  total_outcomes == 0?   │ Yes │  Return infinity        │             │
+│  │                         │────►│  (prefer unvisited)     │             │
+│  └───────────┬─────────────┘     └─────────────────────────┘             │
+│              │ No                                                        │
+│              ▼                                                           │
+│  ┌─────────────────────────┐                                             │
+│  │  Initialize entropy = 0 │                                             │
+│  └───────────┬─────────────┘                                             │
+│              │                                                           │
+│              ▼                                                           │
+│  ┌─────────────────────────┐                                             │
+│  │  For each outcome in    │◄────┐                                       │
+│  │  outcome_counts:        │     │                                       │
+│  └───────────┬─────────────┘     │                                       │
+│              │                   │                                       │
+│              ▼                   │                                       │
+│  ┌─────────────────────────┐     │                                       │
+│  │  Calculate probability  │     │                                       │
+│  │  p = count/total_outcomes│    │                                       │
+│  └───────────┬─────────────┘     │                                       │
+│              │                   │                                       │
+│              ▼                   │                                       │
+│  ┌─────────────────────────┐     │                                       │
+│  │  Update entropy         │     │                                       │
+│  │  entropy -= p*log(p)    │     │                                       │
+│  └───────────┬─────────────┘     │                                       │
+│              │                   │                                       │
+│              ▼                   │                                       │
+│  ┌─────────────────────────┐     │                                       │
+│  │  More outcomes?         │─────┘                                       │
+│  │                         │  Yes                                        │
+│  └───────────┬─────────────┘                                             │
+│              │ No                                                        │
+│              ▼                                                           │
+│  ┌─────────────────────────┐                                             │
+│  │  Return entropy value   │                                             │
+│  └─────────────────────────┘                                             │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           ACTION SELECTION                                │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────┐                                             │
+│  │  For each child node    │◄────┐                                       │
+│  │                         │     │                                       │
+│  └───────────┬─────────────┘     │                                       │
+│              │                   │                                       │
+│              ▼                   │                                       │
+│  ┌─────────────────────────┐     │                                       │
+│  │  visits == 0?           │ Yes │                                       │
+│  │                         │─────┼───────────────────────────────┐       │
+│  └───────────┬─────────────┘     │                               │       │
+│              │ No               │                               │       │
+│              ▼                   │                               │       │
+│  ┌─────────────────────────┐     │                               │       │
+│  │  Calculate entropy      │     │                               │       │
+│  │  for this child         │     │                               │       │
+│  └───────────┬─────────────┘     │                               │       │
+│              │                   │                               │       │
+│              ▼                   │                               │       │
+│  ┌─────────────────────────┐     │                               │       │
+│  │  Add entropy to         │     │                               │       │
+│  │  choices_weights        │     │                               │       │
+│  └───────────┬─────────────┘     │                               │       │
+│              │                   │                               │       │
+│              ▼                   │                               │       │
+│  ┌─────────────────────────┐     │                               │       │
+│  │  More children?         │─────┘                               │       │
+│  │                         │  Yes                                │       │
+│  └───────────┬─────────────┘                                     │       │
+│              │ No                                                │       │
+│              ▼                                                   ▼       │
+│  ┌─────────────────────────┐                     ┌─────────────────────┐ │
+│  │  Return child with      │                     │  Return unvisited   │ │
+│  │  highest entropy        │                     │  child directly     │ │
+│  └─────────────────────────┘                     └─────────────────────┘ │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+    </div>
+
+    <h2>Summary</h2>
+    <p>Score calculation in simulation and entropy considerations are the heart of the MENTS algorithm:</p>
+    <ol>
+        <li>The score is calculated as the sum of rewards received during a random simulation from the current node.</li>
+        <li>Entropy is calculated based on the distribution of received rewards and is used as a criterion for selecting the next node to explore.</li>
+        <li>Selecting nodes with high entropy encourages exploration of states with high uncertainty, which helps the algorithm discover better solutions in the long run.</li>
+        <li>Unlike traditional algorithms that focus on average reward or UCB value, MENTS focuses on uncertainty, making it particularly suitable for problems with complex dynamics and delayed rewards.</li>
+    </ol>
+
+    <h2>Advantages of MENTS over Traditional Methods</h2>
+    <p>The MENTS algorithm offers several advantages over traditional search methods:</p>
+    <ol>
+        <li><strong>Better exploration</strong>: By focusing on entropy, MENTS naturally explores areas of high uncertainty, which can lead to discovering better solutions in complex environments.</li>
+        <li><strong>Handling stochasticity</strong>: The entropy-based approach is well-suited for stochastic environments where outcomes may vary even with the same actions.</li>
+        <li><strong>Avoiding local optima</strong>: The focus on uncertainty helps the algorithm avoid getting stuck in local optima, as it will continue to explore uncertain areas even if they don't immediately yield high rewards.</li>
+        <li><strong>Adaptability</strong>: As more information is gathered, the entropy calculations automatically adjust to focus exploration on the most uncertain areas.</li>
+    </ol>
+
+    <h2>Potential Improvements and Extensions</h2>
+    <p>Some potential improvements to the current MENTS implementation could include:</p>
+    <ol>
+        <li><strong>Dynamic action space</strong>: Currently, the untried actions are hardcoded as [0, 1]. A more general implementation would derive these from the environment's action space.</li>
+        <li><strong>Parallel simulations</strong>: The algorithm could be sped up by running multiple rollouts in parallel.</li>
+        <li><strong>Value function approximation</strong>: Instead of using random rollouts, a learned value function could provide better estimates of state values.</li>
+        <li><strong>Adaptive rollout depth</strong>: The number of steps in rollouts could be adjusted based on the depth of the node in the tree or other factors.</li>
+        <li><strong>Temperature parameter</strong>: Adding a temperature parameter to the entropy calculation could allow for tuning the exploration-exploitation balance.</li>
+    </ol>
+
+    <h2>Conclusion</h2>
+    <p>
+        The MENTS algorithm represents an innovative approach to decision-making under uncertainty by leveraging entropy as a guide for exploration. Its implementation in the Traffic domain demonstrates its potential for solving complex control problems where traditional methods might struggle.
+    </p>
+    <p>
+        By encouraging exploration of uncertain states, MENTS can discover better long-term strategies, making it particularly suitable for domains with complex dynamics and delayed rewards.
+    </p>
+</body>
+</html>

@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MENTS Tree Expansion Visualization</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      h1,
+      h2,
+      h3 {
+        color: #2c3e50;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .simulation-area {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .tree-visualization {
+        flex: 3;
+        border: 2px solid #3498db;
+        border-radius: 10px;
+        padding: 20px;
+        background-color: #f8f9fa;
+        position: relative;
+        height: 600px;
+      }
+      .info-panel {
+        flex: 2;
+        border: 2px solid #e74c3c;
+        border-radius: 10px;
+        padding: 20px;
+        background-color: #fff5f5;
+        max-height: 600px;
+        overflow-y: auto;
+      }
+      .controls {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        margin: 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      button:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+      }
+      .step-info {
+        background-color: #e8f4f8;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        border-left: 5px solid #3498db;
+      }
+      .node {
+        position: absolute;
+        width: 120px;
+        height: 80px;
+        border-radius: 5px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 12px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        padding: 5px;
+        overflow: hidden;
+        font-family: monospace;
+      }
+      .root-node {
+        background-color: #2c3e50;
+        width: 220px;
+      }
+      .child-node-0 {
+        background-color: #e74c3c;
+      }
+      .child-node-1 {
+        background-color: #27ae60;
+      }
+      .child-node-2 {
+        background-color: #f39c12;
+      }
+      .child-node-3 {
+        background-color: #8e44ad;
+      }
+      .child-node-4 {
+        background-color: #16a085;
+      }
+      .connection {
+        position: absolute;
+        background-color: #34495e;
+        width: 3px;
+        transform-origin: top center;
+      }
+      .entropy-bar {
+        width: 100%;
+        height: 20px;
+        background-color: #ecf0f1;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 5px 0;
+      }
+      .entropy-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3498db, #e74c3c);
+        transition: width 0.5s ease;
+      }
+      .ments-explanation {
+        background-color: #e8f8f5;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 15px 0;
+        border-left: 5px solid #27ae60;
+      }
+      .phase-indicator {
+        position: absolute;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 5px;
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .node-details {
+        position: absolute;
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #bdc3c7;
+        font-size: 12px;
+        display: none;
+        z-index: 10;
+      }
+      .node-details.visible {
+        display: block;
+      }
+      .node-outcome {
+        margin: 5px 0;
+        padding: 3px;
+        background-color: #f8f9fa;
+        border-radius: 3px;
+      }
+      .process-step {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        border-left: 5px solid #3498db;
+      }
+      .process-step h4 {
+        margin-top: 0;
+      }
+      .highlight {
+        background-color: #ffffcc;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+      .traffic-light {
+        width: 20px;
+        height: 60px;
+        background-color: #2c3e50;
+        border-radius: 5px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-around;
+        padding: 5px;
+      }
+      .light {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background-color: #7f8c8d;
+      }
+      .light.red {
+        background-color: #e74c3c;
+      }
+      .light.yellow {
+        background-color: #f1c40f;
+      }
+      .light.green {
+        background-color: #27ae60;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>MENTS Tree Expansion for Traffic Control</h1>
+
+      <div class="controls">
+        <button id="startBtn" onclick="startSimulation()">
+          Start Simulation
+        </button>
+        <button id="nextBtn" onclick="nextStep()" disabled>Next Step</button>
+        <button id="resetBtn" onclick="resetSimulation()">Reset</button>
+        <button id="autoBtn" onclick="toggleAuto()">Auto Play</button>
+      </div>
+
+      <div class="simulation-area">
+        <div class="tree-visualization">
+          <h3>MENTS Tree Search Expansion</h3>
+          <div
+            id="treeCanvas"
+            style="position: relative; height: 550px; width: 100%"
+          >
+            <!-- Tree nodes will be drawn here -->
+          </div>
+        </div>
+
+        <div class="info-panel">
+          <h3>MENTS Algorithm Steps</h3>
+          <div id="stepInfo" class="step-info">
+            Click "Start Simulation" to begin
+          </div>
+
+          <div class="process-step">
+            <h4>Current Traffic Phase</h4>
+            <div style="display: flex; align-items: center; gap: 10px">
+              <div class="traffic-light">
+                <div class="light" id="red-light"></div>
+                <div class="light" id="yellow-light"></div>
+                <div class="light" id="green-light"></div>
+              </div>
+              <div>
+                <strong>Phase:</strong> <span id="phaseName">ALL-RED</span
+                ><br />
+                <strong>Time:</strong> <span id="phaseTime">0s</span> /
+                <span id="phaseMax">3s</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ments-explanation">
+            <h4>How MENTS Works</h4>
+            <p>
+              <strong>1. Tree Structure:</strong> Each node represents a state.
+              The root is the current state, and children represent possible
+              actions.
+            </p>
+            <p>
+              <strong>2. Expansion:</strong> The tree grows by adding new nodes
+              for untried actions.
+            </p>
+            <p>
+              <strong>3. Simulation:</strong> From each new node, a rollout
+              simulates future states to estimate rewards.
+            </p>
+            <p>
+              <strong>4. Backpropagation:</strong> Results are propagated back
+              up the tree, updating visit counts and outcome distributions.
+            </p>
+            <p>
+              <strong>5. Selection:</strong> Nodes with higher entropy (more
+              uncertainty) are preferred for exploration.
+            </p>
+          </div>
+
+          <div class="process-step">
+            <h4>Current Algorithm Phase</h4>
+            <div id="algorithmPhase">Waiting to start...</div>
+          </div>
+
+          <div class="process-step">
+            <h4>Entropy Values</h4>
+            <div>
+              <strong>Stay in phase:</strong>
+              <div class="entropy-bar">
+                <div class="entropy-fill" id="entropy0" style="width: 0%"></div>
+              </div>
+              <span id="entropyValue0">0.000</span>
+            </div>
+            <div>
+              <strong>Advance to next phase:</strong>
+              <div class="entropy-bar">
+                <div class="entropy-fill" id="entropy1" style="width: 0%"></div>
+              </div>
+              <span id="entropyValue1">0.000</span>
+            </div>
+          </div>
+
+          <div class="process-step">
+            <h4>Outcome History</h4>
+            <div
+              id="outcomeHistory"
+              style="
+                max-height: 100px;
+                overflow-y: auto;
+                background-color: #f8f9fa;
+                padding: 10px;
+                border-radius: 5px;
+              "
+            >
+              No outcomes yet...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Constants
+      const PHASES = [
+        "ALL-RED",
+        "WEST-EAST-LEFT",
+        "ALL-RED2",
+        "WEST-EAST-THROUGH",
+        "ALL-RED3",
+        "NORTH-SOUTH-LEFT",
+        "ALL-RED4",
+        "NORTH-SOUTH-THROUGH",
+      ];
+
+      const PHASE_DURATIONS = {
+        "ALL-RED": 3,
+        "ALL-RED2": 3,
+        "ALL-RED3": 3,
+        "ALL-RED4": 3,
+        "WEST-EAST-LEFT": 20,
+        "WEST-EAST-THROUGH": 30,
+        "NORTH-SOUTH-LEFT": 20,
+        "NORTH-SOUTH-THROUGH": 30,
+      };
+
+      // Simulation variables
+      let currentStep = 0;
+      let isAutoPlay = false;
+      let autoInterval;
+      let nodeDetails = null;
+
+      // MENTS simulation data with focus on tree expansion
+      const simulationData = [
+        {
+          step: 1,
+          title: "Initialize MENTS Tree",
+          description:
+            "Create root node representing the current intersection state with ALL-RED phase. The root node has no visits or outcomes yet.",
+          algorithmPhase: "Initialization",
+          trafficPhase: "ALL-RED",
+          phaseTime: 0,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [],
+          outcomes1: [],
+          selectedChild: null,
+          treeState: "init",
+          reward: 0,
+          treeDepth: 0,
+        },
+        {
+          step: 2,
+          title: "First Tree Expansion",
+          description:
+            "The tree expands by creating two child nodes representing possible actions: Stay in ALL-RED or Advance to WEST-EAST-LEFT.",
+          algorithmPhase: "Expansion",
+          trafficPhase: "ALL-RED",
+          phaseTime: 3,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [],
+          outcomes1: [],
+          selectedChild: null,
+          treeState: "expand",
+          reward: 0,
+          treeDepth: 1,
+        },
+        {
+          step: 3,
+          title: "First Simulation (Rollout)",
+          description:
+            "From the 'Advance' child node, a simulation is run to estimate the reward. The simulation follows a random policy for 3 steps.",
+          algorithmPhase: "Simulation",
+          trafficPhase: "ALL-RED",
+          phaseTime: 3,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [],
+          outcomes1: [],
+          selectedChild: 1,
+          treeState: "simulate",
+          reward: -28,
+          treeDepth: 1,
+        },
+        {
+          step: 4,
+          title: "First Backpropagation",
+          description:
+            "The simulation result (-28) is propagated back up the tree. The 'Advance' node and root node visit counts are incremented.",
+          algorithmPhase: "Backpropagation",
+          trafficPhase: "ALL-RED",
+          phaseTime: 3,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [],
+          outcomes1: [-28],
+          selectedChild: 1,
+          treeState: "backprop",
+          reward: -28,
+          treeDepth: 1,
+        },
+        {
+          step: 5,
+          title: "Second Simulation",
+          description:
+            "Now the 'Stay' child node is selected for simulation. Another rollout is performed to estimate its reward.",
+          algorithmPhase: "Simulation",
+          trafficPhase: "ALL-RED",
+          phaseTime: 3,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [],
+          outcomes1: [-28],
+          selectedChild: 0,
+          treeState: "simulate",
+          reward: -30,
+          treeDepth: 1,
+        },
+        {
+          step: 6,
+          title: "Second Backpropagation",
+          description:
+            "The simulation result (-30) is propagated back. Both children now have outcomes, so entropy can be calculated.",
+          algorithmPhase: "Backpropagation",
+          trafficPhase: "ALL-RED",
+          phaseTime: 3,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [-30],
+          outcomes1: [-28],
+          selectedChild: 0,
+          treeState: "backprop",
+          reward: -30,
+          treeDepth: 1,
+        },
+        {
+          step: 7,
+          title: "First Selection Based on Entropy",
+          description:
+            "Both nodes have single outcomes, so entropy is 0 for both. The 'Advance' node is selected because it has a better reward.",
+          algorithmPhase: "Selection",
+          trafficPhase: "ALL-RED",
+          phaseTime: 3,
+          action: 1,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [-30],
+          outcomes1: [-28],
+          selectedChild: 1,
+          treeState: "select",
+          reward: -28,
+          treeDepth: 1,
+        },
+        {
+          step: 8,
+          title: "Action Execution and Phase Change",
+          description:
+            "The selected action (Advance) is executed, changing the traffic phase to WEST-EAST-LEFT. The tree is reset for the new state.",
+          algorithmPhase: "Execution",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 0,
+          action: 1,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [-30],
+          outcomes1: [-28],
+          selectedChild: 1,
+          treeState: "execute",
+          reward: -28,
+          treeDepth: 1,
+        },
+        {
+          step: 9,
+          title: "New Tree for WEST-EAST-LEFT Phase",
+          description:
+            "A new tree is created for the current phase. Two child nodes represent staying in WEST-EAST-LEFT or advancing to ALL-RED2.",
+          algorithmPhase: "Expansion",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 5,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [],
+          outcomes1: [],
+          selectedChild: null,
+          treeState: "expand2",
+          reward: 0,
+          treeDepth: 1,
+        },
+        {
+          step: 10,
+          title: "Multiple Simulations for WEST-EAST-LEFT",
+          description:
+            "Multiple simulations are run for both actions. The 'Stay' action produces diverse outcomes (-25, -22, -18).",
+          algorithmPhase: "Simulation",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 15,
+          action: null,
+          entropy0: 0,
+          entropy1: 0,
+          outcomes0: [-25, -22, -18],
+          outcomes1: [-30],
+          selectedChild: 0,
+          treeState: "simulate2",
+          reward: -18,
+          treeDepth: 1,
+        },
+        {
+          step: 11,
+          title: "Entropy-Based Selection",
+          description:
+            "The 'Stay' action has higher entropy (1.099) due to diverse outcomes, while 'Advance' has entropy 0 (single outcome). MENTS selects 'Stay'.",
+          algorithmPhase: "Selection",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 15,
+          action: 0,
+          entropy0: 1.099,
+          entropy1: 0,
+          outcomes0: [-25, -22, -18],
+          outcomes1: [-30],
+          selectedChild: 0,
+          treeState: "select2",
+          reward: -18,
+          treeDepth: 1,
+        },
+        {
+          step: 12,
+          title: "Expanding Child Node",
+          description:
+            "The selected 'Stay' node is now expanded further, creating its own child nodes for the next decision point.",
+          algorithmPhase: "Expansion",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 20,
+          action: 0,
+          entropy0: 1.099,
+          entropy1: 0,
+          outcomes0: [-25, -22, -18],
+          outcomes1: [-30],
+          selectedChild: 0,
+          treeState: "expand-child",
+          reward: -18,
+          treeDepth: 2,
+        },
+        {
+          step: 13,
+          title: "Deeper Simulation",
+          description:
+            "Simulations are run from the grandchild nodes to estimate their rewards. This builds a deeper understanding of future states.",
+          algorithmPhase: "Simulation",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 25,
+          action: null,
+          entropy0: 1.099,
+          entropy1: 0,
+          outcomes0: [-25, -22, -18],
+          outcomes1: [-30],
+          selectedChild: 0,
+          treeState: "simulate-grandchild",
+          reward: -15,
+          treeDepth: 2,
+          grandchildOutcomes: [[-15, -17], [-22]],
+        },
+        {
+          step: 14,
+          title: "Multi-level Backpropagation",
+          description:
+            "Rewards from grandchild nodes are propagated back up through multiple levels of the tree, updating entropy at each level.",
+          algorithmPhase: "Backpropagation",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 30,
+          action: null,
+          entropy0: 1.386,
+          entropy1: 0,
+          outcomes0: [-25, -22, -18, -15],
+          outcomes1: [-30],
+          selectedChild: 0,
+          treeState: "backprop-grandchild",
+          reward: -15,
+          treeDepth: 2,
+          grandchildOutcomes: [[-15, -17], [-22]],
+        },
+        {
+          step: 15,
+          title: "Third Level Expansion",
+          description:
+            "The tree continues to grow deeper, now expanding to a third level. This allows for planning multiple steps ahead.",
+          algorithmPhase: "Expansion",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 35,
+          action: null,
+          entropy0: 1.386,
+          entropy1: 0,
+          outcomes0: [-25, -22, -18, -15],
+          outcomes1: [-30],
+          selectedChild: 0,
+          treeState: "expand-great-grandchild",
+          reward: -15,
+          treeDepth: 3,
+          grandchildOutcomes: [[-15, -17], [-22]],
+        },
+        {
+          step: 16,
+          title: "Deep Tree Simulation",
+          description:
+            "Simulations now run from the third level of the tree, providing estimates for long-term outcomes of different action sequences.",
+          algorithmPhase: "Simulation",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 40,
+          action: null,
+          entropy0: 1.386,
+          entropy1: 0.693,
+          outcomes0: [-25, -22, -18, -15, -20],
+          outcomes1: [-30, -28],
+          selectedChild: 0,
+          treeState: "simulate-deep",
+          reward: -12,
+          treeDepth: 3,
+          grandchildOutcomes: [
+            [-15, -17, -12],
+            [-22, -19],
+          ],
+        },
+        {
+          step: 17,
+          title: "Complete Tree Backpropagation",
+          description:
+            "Rewards propagate through all levels of the tree, updating entropy values throughout the entire structure.",
+          algorithmPhase: "Backpropagation",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 45,
+          action: null,
+          entropy0: 1.522,
+          entropy1: 0.693,
+          outcomes0: [-25, -22, -18, -15, -20, -12],
+          outcomes1: [-30, -28],
+          selectedChild: 0,
+          treeState: "backprop-deep",
+          reward: -12,
+          treeDepth: 3,
+          grandchildOutcomes: [
+            [-15, -17, -12],
+            [-22, -19],
+          ],
+        },
+        {
+          step: 18,
+          title: "Entropy-Based Selection in Deep Tree",
+          description:
+            "With a fully developed tree, MENTS makes decisions based on entropy calculations at multiple levels, selecting the path with highest uncertainty.",
+          algorithmPhase: "Selection",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 50,
+          action: 0,
+          entropy0: 1.792,
+          entropy1: 0.693,
+          outcomes0: [-25, -22, -18, -15, -20, -12],
+          outcomes1: [-30, -28],
+          selectedChild: 0,
+          treeState: "select-deep",
+          reward: -12,
+          treeDepth: 3,
+          grandchildOutcomes: [
+            [-15, -17, -12],
+            [-22, -19],
+          ],
+        },
+        {
+          step: 19,
+          title: "Fourth Level Expansion",
+          description:
+            "The tree expands to a fourth level, allowing for even more sophisticated planning and decision-making.",
+          algorithmPhase: "Expansion",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 55,
+          action: null,
+          entropy0: 1.792,
+          entropy1: 0.693,
+          outcomes0: [-25, -22, -18, -15, -20, -12],
+          outcomes1: [-30, -28],
+          selectedChild: 0,
+          treeState: "expand-level4",
+          reward: -12,
+          treeDepth: 4,
+          grandchildOutcomes: [
+            [-15, -17, -12],
+            [-22, -19],
+          ],
+        },
+        {
+          step: 20,
+          title: "Final Deep Tree State",
+          description:
+            "The fully developed tree now spans multiple levels, with entropy calculations guiding exploration at each level. This demonstrates MENTS' ability to plan several steps ahead while focusing on uncertain outcomes.",
+          algorithmPhase: "Final Decision",
+          trafficPhase: "WEST-EAST-LEFT",
+          phaseTime: 60,
+          action: 0,
+          entropy0: 1.792,
+          entropy1: 0.693,
+          outcomes0: [-25, -22, -18, -15, -20, -12, -10],
+          outcomes1: [-30, -28],
+          selectedChild: 0,
+          treeState: "final-deep",
+          reward: -10,
+          treeDepth: 4,
+          grandchildOutcomes: [
+            [-15, -17, -12, -10],
+            [-22, -19, -21],
+          ],
+        },
+      ];
+
+      // Start simulation
+      function startSimulation() {
+        currentStep = 0;
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("nextBtn").disabled = false;
+        drawInitialTree();
+        updateDisplay();
+      }
+
+      // Next step
+      function nextStep() {
+        if (currentStep < simulationData.length - 1) {
+          currentStep++;
+          updateDisplay();
+
+          if (currentStep === simulationData.length - 1) {
+            document.getElementById("nextBtn").disabled = true;
+          }
+        }
+      }
+
+      // Reset simulation
+      function resetSimulation() {
+        currentStep = 0;
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("nextBtn").disabled = true;
+        if (autoInterval) {
+          clearInterval(autoInterval);
+          isAutoPlay = false;
+          document.getElementById("autoBtn").textContent = "Auto Play";
+        }
+        clearTree();
+        updateDisplay();
+      }
+
+      // Toggle auto play
+      function toggleAuto() {
+        if (isAutoPlay) {
+          clearInterval(autoInterval);
+          isAutoPlay = false;
+          document.getElementById("autoBtn").textContent = "Auto Play";
+          document.getElementById("nextBtn").disabled = false;
+        } else {
+          isAutoPlay = true;
+          document.getElementById("autoBtn").textContent = "Stop Auto";
+          document.getElementById("nextBtn").disabled = true;
+          autoInterval = setInterval(() => {
+            if (currentStep < simulationData.length - 1) {
+              nextStep();
+            } else {
+              toggleAuto();
+            }
+          }, 3000);
+        }
+      }
+
+      // Draw initial tree
+      function drawInitialTree() {
+        const canvas = document.getElementById("treeCanvas");
+        canvas.innerHTML = "";
+
+        // Draw root node
+        const rootNode = document.createElement("div");
+        rootNode.className = "node root-node";
+        rootNode.id = "rootNode";
+        rootNode.style.left = "400px";
+        rootNode.style.top = "50px";
+        rootNode.innerHTML = "ROOT<br>ALL-RED";
+        rootNode.title = "Root Node - Initial State";
+        rootNode.onclick = () => showNodeDetails("root", 400, 50);
+        canvas.appendChild(rootNode);
+      }
+
+      // Show node details
+      function showNodeDetails(nodeType, x, y) {
+        // Remove existing details
+        if (nodeDetails) {
+          nodeDetails.remove();
+        }
+
+        const data = simulationData[currentStep];
+
+        // Create details panel
+        nodeDetails = document.createElement("div");
+        nodeDetails.className = "node-details visible";
+        nodeDetails.style.left = x + 90 + "px";
+        nodeDetails.style.top = y + "px";
+
+        let content = "";
+        if (nodeType === "root") {
+          content = `
+                    <h4>Root Node</h4>
+                    <p><strong>Phase:</strong> ${data.trafficPhase}</p>
+                    <p><strong>Visits:</strong> ${
+                      data.outcomes0.length + data.outcomes1.length
+                    }</p>
+                    <p><strong>Children:</strong> ${
+                      data.treeState !== "init" ? 2 : 0
+                    }</p>
+                `;
+        } else if (nodeType === "child0") {
+          content = `
+                    <h4>Stay in Phase</h4>
+                    <p><strong>Visits:</strong> ${data.outcomes0.length}</p>
+                    <p><strong>Entropy:</strong> ${data.entropy0.toFixed(3)}</p>
+                    <p><strong>Outcomes:</strong></p>
+                `;
+          data.outcomes0.forEach((outcome) => {
+            content += `<div class="node-outcome">${outcome}</div>`;
+          });
+        } else if (nodeType === "child1") {
+          content = `
+                    <h4>Advance to Next Phase</h4>
+                    <p><strong>Visits:</strong> ${data.outcomes1.length}</p>
+                    <p><strong>Entropy:</strong> ${data.entropy1.toFixed(3)}</p>
+                    <p><strong>Outcomes:</strong></p>
+                `;
+          data.outcomes1.forEach((outcome) => {
+            content += `<div class="node-outcome">${outcome}</div>`;
+          });
+        }
+
+        nodeDetails.innerHTML = content;
+        document.getElementById("treeCanvas").appendChild(nodeDetails);
+      }
+
+      // Update tree based on current step
+      function updateTree() {
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Clear existing tree
+        canvas.innerHTML = "";
+
+        // Draw tree based on current state
+        if (data.treeState === "init") {
+          // Just the root node
+          drawRootNode();
+        } else if (
+          data.treeState === "expand" ||
+          data.treeState === "expand2"
+        ) {
+          // Root with two children
+          drawExpandedTree();
+        } else if (
+          data.treeState === "simulate" ||
+          data.treeState === "simulate2"
+        ) {
+          // Show simulation from selected child
+          drawSimulationTree();
+        } else if (data.treeState === "backprop") {
+          // Show backpropagation
+          drawBackpropTree();
+        } else if (
+          data.treeState === "select" ||
+          data.treeState === "select2"
+        ) {
+          // Show selection
+          drawSelectionTree();
+        } else if (data.treeState === "execute") {
+          // Show execution
+          drawExecutionTree();
+        } else if (data.treeState === "expand-child") {
+          // Show expanded child node with grandchildren
+          drawExpandedChildTree();
+        } else if (data.treeState === "simulate-grandchild") {
+          // Show simulation from grandchild
+          drawGrandchildSimulationTree();
+        } else if (data.treeState === "backprop-grandchild") {
+          // Show backpropagation from grandchild
+          drawGrandchildBackpropTree();
+        } else if (data.treeState === "expand-great-grandchild") {
+          // Show expanded tree with great-grandchildren
+          drawGreatGrandchildTree();
+        } else if (
+          data.treeState === "simulate-deep" ||
+          data.treeState === "backprop-deep"
+        ) {
+          // Show deep tree simulation or backpropagation
+          drawDeepTree();
+        } else if (data.treeState === "select-deep") {
+          // Show selection in deep tree
+          drawDeepSelectionTree();
+        } else if (data.treeState === "expand-level4") {
+          // Show fourth level expansion
+          drawLevel4Tree();
+        } else if (data.treeState === "final-deep") {
+          // Show final deep tree
+          drawFinalDeepTree();
+        } else if (data.treeState === "final") {
+          // Show final tree
+          drawFinalTree();
+        }
+      }
+
+      // Draw root node
+      function drawRootNode() {
+        const canvas = document.getElementById("treeCanvas");
+
+        // Root node
+        const rootNode = document.createElement("div");
+        rootNode.className = "node root-node";
+        rootNode.id = "rootNode";
+        rootNode.style.left = "300px";
+        rootNode.style.top = "50px";
+        rootNode.style.width = "300px";
+        rootNode.style.height = "80px";
+        rootNode.style.fontFamily = "monospace";
+        rootNode.innerHTML =
+          "ROOT[Initial State]<br>untried_actions = [4]<br>children = []";
+        rootNode.title = "Root Node - Initial State";
+        rootNode.onclick = () => showNodeDetails("root", 300, 50);
+        canvas.appendChild(rootNode);
+
+        // Phase indicator
+        const phaseIndicator = document.createElement("div");
+        phaseIndicator.className = "phase-indicator";
+        phaseIndicator.style.left = "400px";
+        phaseIndicator.style.top = "20px";
+        phaseIndicator.innerHTML =
+          "Current Phase: " + simulationData[currentStep].trafficPhase;
+        canvas.appendChild(phaseIndicator);
+      }
+
+      // Draw expanded tree
+      function drawExpandedTree() {
+        const canvas = document.getElementById("treeCanvas");
+
+        // Root node
+        const rootNode = document.createElement("div");
+        rootNode.className = "node root-node";
+        rootNode.id = "rootNode";
+        rootNode.style.left = "300px";
+        rootNode.style.top = "50px";
+        rootNode.style.width = "300px";
+        rootNode.style.height = "80px";
+        rootNode.innerHTML =
+          "ROOT[Initial State]<br>untried_actions = [4]<br>children = [Child_0, Child_1, Child_2, Child_3]";
+        rootNode.title = "Root Node - Initial State";
+        rootNode.onclick = () => showNodeDetails("root", 300, 50);
+        canvas.appendChild(rootNode);
+
+        // ASCII-style connector pattern
+        const connectorPattern = document.createElement("div");
+        connectorPattern.style.position = "absolute";
+        connectorPattern.style.left = "200px";
+        connectorPattern.style.top = "140px";
+        connectorPattern.style.width = "500px";
+        connectorPattern.style.height = "20px";
+        connectorPattern.style.fontFamily = "monospace";
+        connectorPattern.style.fontSize = "20px";
+        connectorPattern.style.textAlign = "center";
+        connectorPattern.style.color = "#34495e";
+        connectorPattern.innerHTML = "┌─────┬─────┼─────┬─────┐";
+        canvas.appendChild(connectorPattern);
+
+        // Vertical connection lines
+        for (let i = 0; i < 4; i++) {
+          const x = 250 + i * 100;
+          const connection = document.createElement("div");
+          connection.className = "connection";
+          connection.style.left = x + "px";
+          connection.style.top = "160px";
+          connection.style.height = "40px";
+          connection.style.transform = "rotate(0deg)";
+          canvas.appendChild(connection);
+        }
+
+        // ASCII-style vertical lines
+        const verticalLines = document.createElement("div");
+        verticalLines.style.position = "absolute";
+        verticalLines.style.left = "200px";
+        verticalLines.style.top = "160px";
+        verticalLines.style.width = "500px";
+        verticalLines.style.height = "20px";
+        verticalLines.style.fontFamily = "monospace";
+        verticalLines.style.fontSize = "20px";
+        verticalLines.style.textAlign = "center";
+        verticalLines.style.color = "#34495e";
+        verticalLines.innerHTML = "│     │     │     │     │";
+        canvas.appendChild(verticalLines);
+
+        // Child nodes
+        const childLabels = ["NS Green", "EW Green", "All Red", "NS Yellow"];
+        const rewards = [-15.2, -18.7, -25.3, -20.1];
+
+        for (let i = 0; i < 4; i++) {
+          const x = 200 + i * 100;
+          const child = document.createElement("div");
+          child.className = "node child-node-" + i;
+          child.id = "child" + i;
+          child.style.left = x + "px";
+          child.style.top = "200px";
+          child.style.width = "100px";
+          child.style.height = "100px";
+          child.innerHTML =
+            "Child_" +
+            i +
+            "<br>[" +
+            childLabels[i] +
+            "]<br>R: " +
+            rewards[i] +
+            "<br>visits=1";
+          child.title = "Child node " + i;
+          child.onclick = () => showNodeDetails("child" + i, x, 200);
+          canvas.appendChild(child);
+        }
+
+        // Phase indicator
+        const phaseIndicator = document.createElement("div");
+        phaseIndicator.className = "phase-indicator";
+        phaseIndicator.style.left = "400px";
+        phaseIndicator.style.top = "20px";
+        phaseIndicator.innerHTML =
+          "Current Phase: " + simulationData[currentStep].trafficPhase;
+        canvas.appendChild(phaseIndicator);
+      }
+
+      // Draw simulation tree
+      function drawSimulationTree() {
+        // First draw the expanded tree
+        drawExpandedTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Highlight the selected child
+        const selectedChild = document.getElementById(
+          `child${data.selectedChild}`
+        );
+        if (selectedChild) {
+          selectedChild.style.boxShadow = "0 0 20px #f1c40f";
+          selectedChild.style.transform = "scale(1.1)";
+        }
+
+        // Add simulation arrow
+        const simArrow = document.createElement("div");
+        simArrow.style.position = "absolute";
+        simArrow.style.left = 200 + data.selectedChild * 100 + 40 + "px";
+        simArrow.style.top = "300px";
+        simArrow.style.width = "0";
+        simArrow.style.height = "0";
+        simArrow.style.borderLeft = "10px solid transparent";
+        simArrow.style.borderRight = "10px solid transparent";
+        simArrow.style.borderTop = "20px solid #e74c3c";
+        canvas.appendChild(simArrow);
+
+        // Add simulation text
+        const simText = document.createElement("div");
+        simText.style.position = "absolute";
+        simText.style.left = 200 + data.selectedChild * 100 + "px";
+        simText.style.top = "330px";
+        simText.style.padding = "10px";
+        simText.style.backgroundColor = "#f8f9fa";
+        simText.style.borderRadius = "5px";
+        simText.style.border = "1px solid #bdc3c7";
+        simText.innerHTML = `Simulating...<br>Reward: ${data.reward}`;
+        canvas.appendChild(simText);
+      }
+
+      // Draw backpropagation tree
+      function drawBackpropTree() {
+        // First draw the simulation tree
+        drawSimulationTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Add backpropagation arrow
+        const backArrow = document.createElement("div");
+        backArrow.style.position = "absolute";
+        backArrow.style.left = 200 + data.selectedChild * 100 + 40 + "px";
+        backArrow.style.top = "150px";
+        backArrow.style.width = "0";
+        backArrow.style.height = "0";
+        backArrow.style.borderLeft = "10px solid transparent";
+        backArrow.style.borderRight = "10px solid transparent";
+        backArrow.style.borderBottom = "20px solid #3498db";
+        canvas.appendChild(backArrow);
+
+        // Add backpropagation text
+        const backText = document.createElement("div");
+        backText.style.position = "absolute";
+        backText.style.left = "450px";
+        backText.style.top = "120px";
+        backText.style.padding = "10px";
+        backText.style.backgroundColor = "#f8f9fa";
+        backText.style.borderRadius = "5px";
+        backText.style.border = "1px solid #bdc3c7";
+        backText.innerHTML = `Backpropagating...<br>Updating visit counts and outcomes`;
+        canvas.appendChild(backText);
+      }
+
+      // Draw selection tree
+      function drawSelectionTree() {
+        // First draw the expanded tree
+        drawExpandedTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Add entropy values to nodes
+        for (let i = 0; i < 4; i++) {
+          const child = document.getElementById(`child${i}`);
+          if (child) {
+            // We'll update the content to show entropy and visits
+            // This is just a placeholder - in a real implementation you'd use actual data
+            const entropy =
+              i === 0 ? data.entropy0 : i === 1 ? data.entropy1 : 0.5;
+            const visits =
+              i === 0
+                ? data.outcomes0
+                  ? data.outcomes0.length
+                  : 1
+                : i === 1
+                ? data.outcomes1
+                  ? data.outcomes1.length
+                  : 1
+                : 1;
+
+            // Update the child node with entropy and visits information
+            const childContent = child.innerHTML.split("<br>R:")[0];
+            child.innerHTML = `${childContent}<br>R: ${
+              i === 0 ? -15.2 : i === 1 ? -18.7 : i === 2 ? -25.3 : -20.1
+            }<br>visits=${visits}`;
+          }
+        }
+
+        // Highlight the selected child
+        const selectedChild = document.getElementById(
+          `child${data.selectedChild}`
+        );
+        if (selectedChild) {
+          selectedChild.style.boxShadow = "0 0 20px #f1c40f";
+          selectedChild.style.transform = "scale(1.1)";
+        }
+
+        // Add selection text
+        const selText = document.createElement("div");
+        selText.style.position = "absolute";
+        selText.style.left = "350px";
+        selText.style.top = "350px";
+        selText.style.padding = "10px";
+        selText.style.backgroundColor = "#f8f9fa";
+        selText.style.borderRadius = "5px";
+        selText.style.border = "1px solid #bdc3c7";
+        selText.innerHTML = `Selected action: Child_${
+          data.selectedChild
+        }<br>Based on ${
+          data.entropy0 > data.entropy1 ? "higher entropy" : "better reward"
+        }`;
+        canvas.appendChild(selText);
+      }
+
+      // Draw execution tree
+      function drawExecutionTree() {
+        // First draw the selection tree
+        drawSelectionTree();
+
+        const canvas = document.getElementById("treeCanvas");
+
+        // Add execution text
+        const execText = document.createElement("div");
+        execText.style.position = "absolute";
+        execText.style.left = "350px";
+        execText.style.top = "420px";
+        execText.style.padding = "10px";
+        execText.style.backgroundColor = "#e8f8f5";
+        execText.style.borderRadius = "5px";
+        execText.style.border = "1px solid #27ae60";
+        execText.innerHTML = `Executing action...<br>Changing to ${simulationData[currentStep].trafficPhase}`;
+        canvas.appendChild(execText);
+
+        // Add execution arrow
+        const execArrow = document.createElement("div");
+        execArrow.style.position = "absolute";
+        execArrow.style.left = "400px";
+        execArrow.style.top = "380px";
+        execArrow.style.width = "0";
+        execArrow.style.height = "0";
+        execArrow.style.borderLeft = "10px solid transparent";
+        execArrow.style.borderRight = "10px solid transparent";
+        execArrow.style.borderTop = "20px solid #27ae60";
+        canvas.appendChild(execArrow);
+      }
+
+      // Draw expanded child tree (level 2)
+      function drawExpandedChildTree() {
+        // First draw the expanded tree
+        drawExpandedTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Highlight the selected child
+        const selectedChild = document.getElementById(
+          `child${data.selectedChild}`
+        );
+        if (selectedChild) {
+          selectedChild.style.boxShadow = "0 0 20px #f1c40f";
+          selectedChild.style.transform = "scale(1.1)";
+        }
+
+        // Get the position of the selected child
+        const selectedChildX = 200 + data.selectedChild * 100;
+        const selectedChildY = 200;
+
+        // Add vertical connection lines for grandchildren
+        const gc1Connection = document.createElement("div");
+        gc1Connection.className = "connection";
+        gc1Connection.style.left = selectedChildX + 50 + "px";
+        gc1Connection.style.top = "300px";
+        gc1Connection.style.height = "50px";
+        gc1Connection.style.transform = "rotate(0deg)";
+        canvas.appendChild(gc1Connection);
+
+        // Grandchild nodes
+        const gc1 = document.createElement("div");
+        gc1.className = "node grandchild-node";
+        gc1.id = "grandchild0";
+        gc1.style.left = selectedChildX + "px";
+        gc1.style.top = "350px";
+        gc1.style.width = "100px";
+        gc1.style.height = "80px";
+        gc1.innerHTML = "GrandChild_0<br>[STAY]<br>R: -17.5<br>visits=1";
+        gc1.style.backgroundColor = "#f39c12";
+        canvas.appendChild(gc1);
+
+        const gc2 = document.createElement("div");
+        gc2.className = "node grandchild-node";
+        gc2.id = "grandchild1";
+        gc2.style.left = selectedChildX + "px";
+        gc2.style.top = "450px";
+        gc2.style.width = "100px";
+        gc2.style.height = "80px";
+        gc2.innerHTML = "GrandChild_1<br>[ADVANCE]<br>R: -22.3<br>visits=1";
+        gc2.style.backgroundColor = "#9b59b6";
+        canvas.appendChild(gc2);
+
+        // Add vertical connection for second grandchild
+        const gc2Connection = document.createElement("div");
+        gc2Connection.className = "connection";
+        gc2Connection.style.left = selectedChildX + 50 + "px";
+        gc2Connection.style.top = "430px";
+        gc2Connection.style.height = "20px";
+        gc2Connection.style.transform = "rotate(0deg)";
+        canvas.appendChild(gc2Connection);
+
+        // Add expansion text
+        const expandText = document.createElement("div");
+        expandText.style.position = "absolute";
+        expandText.style.left = "300px";
+        expandText.style.top = "400px";
+        expandText.style.padding = "10px";
+        expandText.style.backgroundColor = "#f8f9fa";
+        expandText.style.borderRadius = "5px";
+        expandText.style.border = "1px solid #bdc3c7";
+        expandText.innerHTML = `Expanding child node...<br>Creating grandchild nodes for next decision point`;
+        canvas.appendChild(expandText);
+      }
+
+      // Draw grandchild simulation tree
+      function drawGrandchildSimulationTree() {
+        // First draw the expanded child tree
+        drawExpandedChildTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Highlight a grandchild for simulation
+        const grandchild = document.getElementById("grandchild0");
+        if (grandchild) {
+          grandchild.style.boxShadow = "0 0 20px #f1c40f";
+          grandchild.style.transform = "scale(1.1)";
+        }
+
+        // Add simulation arrow
+        const simArrow = document.createElement("div");
+        simArrow.style.position = "absolute";
+        simArrow.style.left = "230px";
+        simArrow.style.top = "400px";
+        simArrow.style.width = "0";
+        simArrow.style.height = "0";
+        simArrow.style.borderLeft = "10px solid transparent";
+        simArrow.style.borderRight = "10px solid transparent";
+        simArrow.style.borderTop = "20px solid #e74c3c";
+        canvas.appendChild(simArrow);
+
+        // Add simulation text
+        const simText = document.createElement("div");
+        simText.style.position = "absolute";
+        simText.style.left = "180px";
+        simText.style.top = "430px";
+        simText.style.padding = "10px";
+        simText.style.backgroundColor = "#f8f9fa";
+        simText.style.borderRadius = "5px";
+        simText.style.border = "1px solid #bdc3c7";
+        simText.innerHTML = `Simulating from grandchild...<br>Reward: ${data.reward}`;
+        canvas.appendChild(simText);
+      }
+
+      // Draw grandchild backpropagation tree
+      function drawGrandchildBackpropTree() {
+        // First draw the grandchild simulation tree
+        drawGrandchildSimulationTree();
+
+        const canvas = document.getElementById("treeCanvas");
+
+        // Add backpropagation arrows
+        const backArrow1 = document.createElement("div");
+        backArrow1.style.position = "absolute";
+        backArrow1.style.left = "260px";
+        backArrow1.style.top = "280px";
+        backArrow1.style.width = "0";
+        backArrow1.style.height = "0";
+        backArrow1.style.borderLeft = "10px solid transparent";
+        backArrow1.style.borderRight = "10px solid transparent";
+        backArrow1.style.borderBottom = "20px solid #3498db";
+        canvas.appendChild(backArrow1);
+
+        const backArrow2 = document.createElement("div");
+        backArrow2.style.position = "absolute";
+        backArrow2.style.left = "350px";
+        backArrow2.style.top = "150px";
+        backArrow2.style.width = "0";
+        backArrow2.style.height = "0";
+        backArrow2.style.borderLeft = "10px solid transparent";
+        backArrow2.style.borderRight = "10px solid transparent";
+        backArrow2.style.borderBottom = "20px solid #3498db";
+        canvas.appendChild(backArrow2);
+
+        // Add backpropagation text
+        const backText = document.createElement("div");
+        backText.style.position = "absolute";
+        backText.style.left = "400px";
+        backText.style.top = "120px";
+        backText.style.padding = "10px";
+        backText.style.backgroundColor = "#f8f9fa";
+        backText.style.borderRadius = "5px";
+        backText.style.border = "1px solid #bdc3c7";
+        backText.innerHTML = `Multi-level backpropagation...<br>Updating entropy at all levels`;
+        canvas.appendChild(backText);
+      }
+
+      // Draw great-grandchild tree (level 3)
+      function drawGreatGrandchildTree() {
+        // First draw the grandchild tree
+        drawExpandedChildTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Add entropy values to grandchild nodes
+        const gc1 = document.getElementById("grandchild0");
+        const gc2 = document.getElementById("grandchild1");
+
+        if (gc1) {
+          gc1.innerHTML += `<br>E: 0.693`;
+          gc1.innerHTML += `<br>Visits: 2`;
+        }
+
+        if (gc2) {
+          gc2.innerHTML += `<br>E: 0`;
+          gc2.innerHTML += `<br>Visits: 1`;
+        }
+
+        // Highlight the selected grandchild
+        if (gc1) {
+          gc1.style.boxShadow = "0 0 20px #f1c40f";
+        }
+
+        // Add great-grandchild nodes
+        // Connection lines
+        const ggc1Connection = document.createElement("div");
+        ggc1Connection.className = "connection";
+        ggc1Connection.style.left = "230px";
+        ggc1Connection.style.top = "360px";
+        ggc1Connection.style.width = "70px";
+        ggc1Connection.style.transform = "rotate(-45deg)";
+        canvas.appendChild(ggc1Connection);
+
+        const ggc2Connection = document.createElement("div");
+        ggc2Connection.className = "connection";
+        ggc2Connection.style.left = "230px";
+        ggc2Connection.style.top = "360px";
+        ggc2Connection.style.width = "70px";
+        ggc2Connection.style.transform = "rotate(45deg)";
+        canvas.appendChild(ggc2Connection);
+
+        // Great-grandchild nodes
+        const ggc1 = document.createElement("div");
+        ggc1.className = "node";
+        ggc1.id = "greatgrandchild0";
+        ggc1.style.left = "180px";
+        ggc1.style.top = "420px";
+        ggc1.style.width = "60px";
+        ggc1.style.height = "60px";
+        ggc1.innerHTML = "STAY";
+        ggc1.style.backgroundColor = "#16a085";
+        canvas.appendChild(ggc1);
+
+        const ggc2 = document.createElement("div");
+        ggc2.className = "node";
+        ggc2.id = "greatgrandchild1";
+        ggc2.style.left = "280px";
+        ggc2.style.top = "420px";
+        ggc2.style.width = "60px";
+        ggc2.style.height = "60px";
+        ggc2.innerHTML = "ADVANCE";
+        ggc2.style.backgroundColor = "#d35400";
+        canvas.appendChild(ggc2);
+
+        // Add expansion text
+        const expandText = document.createElement("div");
+        expandText.style.position = "absolute";
+        expandText.style.left = "400px";
+        expandText.style.top = "400px";
+        expandText.style.padding = "10px";
+        expandText.style.backgroundColor = "#f8f9fa";
+        expandText.style.borderRadius = "5px";
+        expandText.style.border = "1px solid #bdc3c7";
+        expandText.innerHTML = `Expanding to third level...<br>Tree depth: ${data.treeDepth}`;
+        canvas.appendChild(expandText);
+      }
+
+      // Draw deep tree (level 3 with simulations)
+      function drawDeepTree() {
+        // First draw the great-grandchild tree
+        drawGreatGrandchildTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Add simulation indicator to great-grandchild
+        const ggc1 = document.getElementById("greatgrandchild0");
+        if (ggc1) {
+          ggc1.style.boxShadow = "0 0 20px #f1c40f";
+          ggc1.innerHTML += `<br>E: 0.693`;
+        }
+
+        // Add deep simulation text
+        const simText = document.createElement("div");
+        simText.style.position = "absolute";
+        simText.style.left = "100px";
+        simText.style.top = "500px";
+        simText.style.padding = "10px";
+        simText.style.backgroundColor = "#f8f9fa";
+        simText.style.borderRadius = "5px";
+        simText.style.border = "1px solid #bdc3c7";
+        simText.innerHTML = `Deep tree simulation...<br>Reward: ${data.reward}<br>Tree depth: ${data.treeDepth}`;
+        canvas.appendChild(simText);
+
+        if (data.treeState === "backprop-deep") {
+          // Add backpropagation arrows for deep tree
+          const arrows = [];
+          for (let i = 0; i < 3; i++) {
+            const arrow = document.createElement("div");
+            arrow.style.position = "absolute";
+            arrow.style.width = "0";
+            arrow.style.height = "0";
+            arrow.style.borderLeft = "10px solid transparent";
+            arrow.style.borderRight = "10px solid transparent";
+            arrow.style.borderBottom = "20px solid #3498db";
+
+            if (i === 0) {
+              arrow.style.left = "200px";
+              arrow.style.top = "380px";
+            } else if (i === 1) {
+              arrow.style.left = "260px";
+              arrow.style.top = "280px";
+            } else {
+              arrow.style.left = "350px";
+              arrow.style.top = "150px";
+            }
+
+            arrows.push(arrow);
+            canvas.appendChild(arrow);
+          }
+        }
+      }
+
+      // Draw deep selection tree
+      function drawDeepSelectionTree() {
+        // First draw the deep tree
+        drawDeepTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Add selection text
+        const selText = document.createElement("div");
+        selText.style.position = "absolute";
+        selText.style.left = "400px";
+        selText.style.top = "500px";
+        selText.style.padding = "10px";
+        selText.style.backgroundColor = "#e8f8f5";
+        selText.style.borderRadius = "5px";
+        selText.style.border = "1px solid #27ae60";
+        selText.innerHTML = `Deep tree selection based on entropy...<br>
+                                Selected path has highest entropy at each level<br>
+                                Tree depth: ${data.treeDepth}`;
+        canvas.appendChild(selText);
+      }
+
+      // Draw level 4 tree
+      function drawLevel4Tree() {
+        // First draw the deep selection tree
+        drawDeepSelectionTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Add level 4 nodes
+        // Connection lines
+        const l4c1 = document.createElement("div");
+        l4c1.className = "connection";
+        l4c1.style.left = "180px";
+        l4c1.style.top = "460px";
+        l4c1.style.width = "50px";
+        l4c1.style.transform = "rotate(-45deg)";
+        canvas.appendChild(l4c1);
+
+        const l4c2 = document.createElement("div");
+        l4c2.className = "connection";
+        l4c2.style.left = "180px";
+        l4c2.style.top = "460px";
+        l4c2.style.width = "50px";
+        l4c2.style.transform = "rotate(45deg)";
+        canvas.appendChild(l4c2);
+
+        // Level 4 nodes
+        const l4n1 = document.createElement("div");
+        l4n1.className = "node";
+        l4n1.id = "level4-0";
+        l4n1.style.left = "140px";
+        l4n1.style.top = "500px";
+        l4n1.style.width = "50px";
+        l4n1.style.height = "50px";
+        l4n1.style.fontSize = "10px";
+        l4n1.innerHTML = "STAY";
+        l4n1.style.backgroundColor = "#1abc9c";
+        canvas.appendChild(l4n1);
+
+        const l4n2 = document.createElement("div");
+        l4n2.className = "node";
+        l4n2.id = "level4-1";
+        l4n2.style.left = "220px";
+        l4n2.style.top = "500px";
+        l4n2.style.width = "50px";
+        l4n2.style.height = "50px";
+        l4n2.style.fontSize = "10px";
+        l4n2.innerHTML = "ADVANCE";
+        l4n2.style.backgroundColor = "#e67e22";
+        canvas.appendChild(l4n2);
+
+        // Add level 4 text
+        const l4Text = document.createElement("div");
+        l4Text.style.position = "absolute";
+        l4Text.style.left = "300px";
+        l4Text.style.top = "520px";
+        l4Text.style.padding = "10px";
+        l4Text.style.backgroundColor = "#f8f9fa";
+        l4Text.style.borderRadius = "5px";
+        l4Text.style.border = "1px solid #bdc3c7";
+        l4Text.innerHTML = `Expanding to fourth level...<br>Tree depth: ${data.treeDepth}`;
+        canvas.appendChild(l4Text);
+      }
+
+      // Draw final deep tree
+      function drawFinalDeepTree() {
+        // First draw the level 4 tree
+        drawLevel4Tree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Highlight level 4 node
+        const l4n1 = document.getElementById("level4-0");
+        if (l4n1) {
+          l4n1.style.boxShadow = "0 0 20px #f1c40f";
+          l4n1.innerHTML += `<br>E: 0.5`;
+        }
+
+        // Add final decision text
+        const finalText = document.createElement("div");
+        finalText.style.position = "absolute";
+        finalText.style.left = "400px";
+        finalText.style.top = "350px";
+        finalText.style.padding = "10px";
+        finalText.style.backgroundColor = "#e8f8f5";
+        finalText.style.borderRadius = "5px";
+        finalText.style.border = "1px solid #27ae60";
+        finalText.innerHTML = `Final deep tree decision: Stay<br>
+                                  Tree depth: ${data.treeDepth}<br>
+                                  Entropy guides exploration at each level<br>
+                                  MENTS plans multiple steps ahead`;
+        canvas.appendChild(finalText);
+
+        // Add tree depth indicator
+        const depthText = document.createElement("div");
+        depthText.style.position = "absolute";
+        depthText.style.left = "50px";
+        depthText.style.top = "50px";
+        depthText.style.padding = "10px";
+        depthText.style.backgroundColor = "#f8f9fa";
+        depthText.style.borderRadius = "5px";
+        depthText.style.border = "1px solid #3498db";
+        depthText.innerHTML = `<strong>Tree Depth: ${data.treeDepth}</strong><br>
+                                  Level 1: Root → Children<br>
+                                  Level 2: Children → Grandchildren<br>
+                                  Level 3: Grandchildren → Great-grandchildren<br>
+                                  Level 4: Great-grandchildren → Great-great-grandchildren`;
+        canvas.appendChild(depthText);
+      }
+
+      // Draw final tree
+      function drawFinalTree() {
+        // First draw the expanded tree
+        drawExpandedTree();
+
+        const canvas = document.getElementById("treeCanvas");
+        const data = simulationData[currentStep];
+
+        // Add entropy values and visit counts to nodes
+        const child0 = document.getElementById("child0");
+        const child1 = document.getElementById("child1");
+
+        if (child0) {
+          child0.innerHTML += `<br>E: ${data.entropy0.toFixed(3)}`;
+          child0.innerHTML += `<br>Visits: ${data.outcomes0.length}`;
+        }
+
+        if (child1) {
+          child1.innerHTML += `<br>E: ${data.entropy1.toFixed(3)}`;
+          child1.innerHTML += `<br>Visits: ${data.outcomes1.length}`;
+        }
+
+        // Highlight the selected child
+        const selectedChild = document.getElementById(
+          `child${data.selectedChild}`
+        );
+        if (selectedChild) {
+          selectedChild.style.boxShadow = "0 0 20px #f1c40f";
+          selectedChild.style.transform = "scale(1.1)";
+        }
+
+        // Add final decision text
+        const finalText = document.createElement("div");
+        finalText.style.position = "absolute";
+        finalText.style.left = "400px";
+        finalText.style.top = "350px";
+        finalText.style.padding = "10px";
+        finalText.style.backgroundColor = "#e8f8f5";
+        finalText.style.borderRadius = "5px";
+        finalText.style.border = "1px solid #27ae60";
+        finalText.innerHTML = `Final decision: ${
+          data.selectedChild === 0 ? "Stay" : "Advance"
+        }<br>
+                                  Higher entropy (${
+                                    data.entropy0 > data.entropy1
+                                      ? data.entropy0.toFixed(3)
+                                      : data.entropy1.toFixed(3)
+                                  }) indicates more uncertainty<br>
+                                  MENTS prefers exploration of uncertain outcomes`;
+        canvas.appendChild(finalText);
+      }
+
+      // Clear tree
+      function clearTree() {
+        document.getElementById("treeCanvas").innerHTML = "";
+        if (nodeDetails) {
+          nodeDetails.remove();
+          nodeDetails = null;
+        }
+      }
+
+      // Update traffic light
+      function updateTrafficLight(phase) {
+        // Reset all lights
+        document.getElementById("red-light").className = "light";
+        document.getElementById("yellow-light").className = "light";
+        document.getElementById("green-light").className = "light";
+
+        // Set light based on phase
+        if (phase.startsWith("ALL-RED")) {
+          document.getElementById("red-light").className = "light red";
+        } else if (phase.includes("LEFT") || phase.includes("THROUGH")) {
+          document.getElementById("green-light").className = "light green";
+        }
+      }
+
+      // Update display
+      function updateDisplay() {
+        const data = simulationData[currentStep];
+
+        // Update step info
+        document.getElementById("stepInfo").innerHTML = `
+                <h4>Step ${data.step}: ${data.title}</h4>
+                <p>${data.description}</p>
+                ${
+                  data.action !== null
+                    ? `<p><strong>Selected Action:</strong> ${
+                        data.action === 0
+                          ? "Stay in current phase"
+                          : "Advance to next phase"
+                      }</p>`
+                    : ""
+                }
+            `;
+
+        // Update algorithm phase
+        document.getElementById("algorithmPhase").innerHTML = `
+                <strong>${data.algorithmPhase}</strong>
+                <p>${getAlgorithmPhaseDescription(data.algorithmPhase)}</p>
+            `;
+
+        // Update traffic phase info
+        document.getElementById("phaseName").textContent = data.trafficPhase;
+        document.getElementById("phaseTime").textContent = data.phaseTime + "s";
+        document.getElementById("phaseMax").textContent =
+          PHASE_DURATIONS[data.trafficPhase] + "s";
+
+        // Update traffic light
+        updateTrafficLight(data.trafficPhase);
+
+        // Update entropy bars
+        const maxEntropy = 2.0; // Theoretical maximum for visualization
+        document.getElementById("entropy0").style.width = `${
+          (data.entropy0 / maxEntropy) * 100
+        }%`;
+        document.getElementById("entropy1").style.width = `${
+          (data.entropy1 / maxEntropy) * 100
+        }%`;
+        document.getElementById("entropyValue0").textContent =
+          data.entropy0.toFixed(3);
+        document.getElementById("entropyValue1").textContent =
+          data.entropy1.toFixed(3);
+
+        // Update outcome history
+        updateOutcomeHistory(data);
+
+        // Update tree visualization
+        updateTree();
+      }
+
+      // Get algorithm phase description
+      function getAlgorithmPhaseDescription(phase) {
+        switch (phase) {
+          case "Initialization":
+            return "Creating the root node representing the current state.";
+          case "Expansion":
+            return "Adding new nodes to the tree for untried actions.";
+          case "Simulation":
+            return "Running rollouts from new nodes to estimate rewards.";
+          case "Backpropagation":
+            return "Updating node statistics based on simulation results.";
+          case "Selection":
+            return "Choosing nodes with highest entropy for exploration.";
+          case "Execution":
+            return "Executing the selected action in the environment.";
+          case "Final Decision":
+            return "Making the final action selection based on accumulated data.";
+          default:
+            return "";
+        }
+      }
+
+      // Update outcome history
+      function updateOutcomeHistory(data) {
+        let historyHTML = "";
+
+        if (data.outcomes0.length > 0) {
+          historyHTML += `<strong>Stay outcomes:</strong><br>`;
+          historyHTML += `[${data.outcomes0.join(", ")}]<br><br>`;
+        }
+
+        if (data.outcomes1.length > 0) {
+          historyHTML += `<strong>Advance outcomes:</strong><br>`;
+          historyHTML += `[${data.outcomes1.join(", ")}]<br><br>`;
+        }
+
+        if (data.selectedChild !== null) {
+          historyHTML += `<span class="highlight">Selected: ${
+            data.selectedChild === 0 ? "Stay" : "Advance"
+          } (Entropy: ${
+            data.selectedChild === 0
+              ? data.entropy0.toFixed(3)
+              : data.entropy1.toFixed(3)
+          })</span>`;
+        }
+
+        if (historyHTML === "") {
+          historyHTML = "No outcomes yet...";
+        }
+
+        document.getElementById("outcomeHistory").innerHTML = historyHTML;
+      }
+
+      // Initialize display
+      updateDisplay();
+    </script>
+  </body>
+</html>
